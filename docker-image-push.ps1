@@ -1,31 +1,41 @@
 param (
-  [Parameter(Mandatory = $true, HelpMessage = "Environment Name for which image will be created.", Position = 1)]
-  [string]$envName = "dev",
-  [Parameter(Mandatory = $true, HelpMessage = "Image Tag.", Position = 2)]
-  [string]$tag = "01",
-  [string]$repository = "/api",
-  [string]$username = $(Read-Host "Input user name" ),
-  [string]$password = $(Read-Host "Input password" ),
-  [string]$dockerhost = "nitinsingh.azurecr.io",
-  [string]$workspace = "C:\Workplace\"
+  [string]$repository = "nitin27may/", #repository name, required for docker hub
+  [string]$imageName = "mean", # image name
+  [string]$username = $(Read-Host "Input user name" ), # registry username
+  [SecureString]$securedPassword = $(Read-Host "Enter a Password" -AsSecureString), # registry password
+  [Parameter(Mandatory = $true, HelpMessage = "Image Tag.")]
+  [string]$tag = "1.0.0", # variable for image tag
+  [string]$dockerhost = "", # Container registry URL, if blank will try to connect docker hub
+  [string]$workspace = "D:\Workplace\mean-docker" # Source code where dockerfile is present 
 )
 
+$password = ConvertFrom-SecureString -SecureString $securedPassword -AsPlainText
 
 try {
-  docker login -u $username -p $password $dockerhost
+  $checkLogin = docker login -u $username -p $password $dockerhost
+  if ( $checkLogin -eq "Login Succeeded") {
 
-  Set-Location $workspace
+    Write-Output "changing the path to build context..."
 
-  docker build -t $tag .
+    Set-Location $workspace
 
-  docker tag $tag  $($dockerhost + $repository + ":" + $tag)
+    Write-Output "Building Image..."
 
-  docker push $($dockerhost + $repository + ":" + $tag)
+    docker build -t $($imageName +":"+$tag) .
+
+    Write-Output "Tagging it..."
+
+    docker tag $($imageName +":"+$tag)  $($dockerhost + $repository + $imageName + ":" + $tag)
+
+    Write-Output "Image push..."
+
+    docker push $($dockerhost + $repository + $imageName + ":" + $tag)
+  }
+
 }
 catch {
-
+  Write-Output "Some error occured."
 }
 finally {
-  docker container stop $(docker container ls -aq)
-  docker container rm $(docker container ls -aq)
+  docker image rm $($dockerhost + $repository + $imageName + ":" + $tag) $($imageName +":"+$tag)
 }
